@@ -6,6 +6,7 @@
 
 ### 文件管理
 - **多文件上传** — 拖拽/选择/剪贴板粘贴，单文件最大 500MB，一次最多 20 个
+- **📁 文件夹感知** — 上传文件自动归属到当前浏览的文件夹，支持右键移动文件
 - **文件预览** — 图片、视频、音频可直接在浏览器中预览
 - **排序与搜索** — 按名称/大小/日期排序，实时搜索过滤
 - **批量操作** — 勾选多个文件 → 批量删除
@@ -29,9 +30,13 @@
 
 ### 安全
 - 登录限速（5分钟内10次，防暴力破解）
+- 上传限速（5分钟内30次，防磁盘填满）
 - 管理员密钥首次启动自动随机生成
-- CSRF Token 保护变更类请求
-- 目录穿越防护
+- CSRF Token 保护变更类请求（含 falsy bypass 修复）
+- 会话固定防护（管理员登录时 regenerate session）
+- 目录穿越防护（safePath + rekey 路径验证）
+- XSS 防护（HTML 属性转义含反斜杠和双引号）
+- 原型链绕过防护（文件夹验证使用 Object.hasOwn）
 - Nginx 安全头（X-Content-Type-Options / X-Frame-Options / X-XSS-Protection）
 
 ### 体验
@@ -131,6 +136,7 @@ docker compose up -d
 | POST | `/api/files/delete-batch` | 管理员+CSRF | 批量删除 |
 | POST | `/api/files/:name/rekey` | 管理员+CSRF | 重置密钥/设置选项 |
 | GET | `/api/preview/:name` | 登录 | 预览（图片/视频/音频流） |
+| PUT | `/api/files/:name/move` | 管理员+CSRF | 移动文件到文件夹 |
 | GET | `/api/disk` | 管理员 | 磁盘使用 |
 | GET | `/api/health` | — | 健康检查 |
 | POST | `/api/snippets` | 管理员+CSRF | 创建文本片段 |
