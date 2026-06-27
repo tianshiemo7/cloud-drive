@@ -95,7 +95,14 @@ async function loadClusterInfo() {
     const nodeId = d.nodeId || 'local';
     document.getElementById('siNodeId').textContent = nodeId;
     document.getElementById('siNodeName').textContent = d.nodeName || nodeId;
-    document.getElementById('siClusterMode').textContent = d.enabled ? `集群 (${d.peers.length} 个对等节点)` : '独立模式';
+    const epEl = document.getElementById('siEndpoint');
+    if (epEl) {
+      epEl.textContent = d.endpoint || 'http://' + window.location.hostname + ':' + (window.location.port || '80');
+      epEl.addEventListener('click', () => copyText(epEl.textContent));
+    }
+    document.getElementById('siClusterMode').textContent = d.enabled ? `集群 (${d.peerCount || d.peers?.length || 0} 个对等节点)` : '独立模式';
+    const syncEl = document.getElementById('siLastSync');
+    if (syncEl) syncEl.textContent = d.lastSync ? new Date(d.lastSync).toLocaleTimeString() : '尚未同步';
     if (d.nodeName) { const el = $('#setNodeName'); if (el) el.value = d.nodeName; }
     // 填充分享信息
     if (d.shareText) {
@@ -137,16 +144,20 @@ async function loadPeerStatus() {
 function renderPeerList(peers) {
   const el = $('#peerList');
   if (!peers.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">暂无对等节点</p>'; return; }
-  el.innerHTML = peers.map(p => `
+  el.innerHTML = peers.map(p => {
+    const cacheInfo = p.fileCount ? ` · ${p.fileCount} 个文件` : '';
+    const syncInfo = p.cachedAt ? ` · 同步于 ${new Date(p.cachedAt).toLocaleTimeString()}` : '';
+    return `
     <div class="peer-item">
       <span class="peer-status ${p.online?'online':'offline'}">${p.online?'🟢':'🔴'}</span>
       <div class="peer-info">
-        <strong>${escapeHtml(p.nodeId)}</strong>
-        <small>${escapeHtml(p.nodeName||'')} · ${escapeHtml(p.endpoint)}</small>
+        <strong>${escapeHtml(p.nodeName||p.nodeId)}</strong>
+        <small style="cursor:pointer;color:var(--accent);" onclick="copyText('${escapeAttr(p.endpoint)}')" title="点击复制地址">📋 ${escapeHtml(p.endpoint)}</small>
+        <small>${cacheInfo}${syncInfo}</small>
       </div>
       <button class="btn btn-danger btn-sm" onclick="removePeer('${escapeAttr(p.nodeId)}')">移除</button>
     </div>
-  `).join('');
+  `;}).join('');
 }
 function loadPeerForm(peers) {
   // Show existing peers' secrets masked
@@ -528,8 +539,7 @@ $('#addPeerBtn').addEventListener('click', async () => {
     await loadFolders();
     renderTree();
     $('#peerNodeId').value='';$('#peerName').value='';$('#peerEndpoint').value='';$('#peerSecret').value='';
-    $('#topologyResult').style.display='none';
-  } catch(e) { toast('添加失败: '+e.message); }
+    } catch(e) { toast('添加失败: '+e.message); }
 });
 
 // 粘贴分享信息
@@ -559,33 +569,7 @@ $('#pastePeerBtn').addEventListener('click', async () => {
   }
 });
 
-// 拓扑发现
-$('#discoverBtn').addEventListener('click', async () => {
-  const endpoint = $('#peerEndpoint').value.trim();
-  const secret = $('#peerSecret').value.trim();
-  if (!endpoint || !secret) return toast('请先填写地址和密钥');
-  const resultEl = $('#topologyResult');
-  resultEl.style.display = 'block';
-  resultEl.innerHTML = '<p>🔍 正在扫描拓扑...</p>';
-  try {
-    const d = await api('POST', `${BASE}/api/cluster/discover`, { endpoint, secret });
-    const nodes = d.discovered || [];
-    if (nodes.length === 0) {
-      resultEl.innerHTML = '<p>✅ 未发现其他节点，将只接入 1 个服务器</p>';
-    } else {
-      resultEl.innerHTML = `
-        <p>🌐 发现 <strong>${nodes.length}</strong> 个关联节点，共将接入 <strong>${d.totalCount}</strong> 个服务器：</p>
-        <ul style="font-size:12px;padding-left:16px;margin:4px 0;">
-          <li>🆕 ${endpoint}（直接连接）</li>
-          ${nodes.map(n => `<li>🔗 ${escapeHtml(n.nodeId)} — ${escapeHtml(n.endpoint)}</li>`).join('')}
-        </ul>
-        <p style="font-size:11px;color:var(--text-muted);">点击「添加节点」一键全部接入</p>
-      `;
-    }
-  } catch(e) {
-    resultEl.innerHTML = `<p style="color:red;">❌ 扫描失败: ${e.message}</p>`;
-  }
-});
+// ==================== 对等节点管理 ====================
 async function removePeer(nodeId) {
   showConfirm(`确定要移除节点 "${nodeId}" 吗？`, async () => {
     try {
@@ -598,6 +582,29 @@ async function removePeer(nodeId) {
 }
 
 // 复制连接口令（一键连接口令）
+// 📋 复制地址
+$('#copyEpOnlyBtn').addEventListener('click', () => {
+  const ep = document.getElementById('siEndpoint');
+  if (ep && ep.textContent) copyText(ep.textContent);
+});
+
+// 📋 从剪贴板粘贴到连接输入框
+$('#pasteTokenBtn').addEventListener('click', async () => {
+  const input = $('#connectToken');
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) { input.value = text; toast('✅ 已粘贴，点击「连接」'); }
+    else toast('剪贴板为空');
+  } catch(e) {
+    toast('无法读取剪贴板，请手动 Ctrl+V 粘贴');
+  }
+});
+
+$('#copyEpBtn').addEventListener('click', () => {
+  const ep = document.getElementById('siEndpoint');
+  if (ep && ep.textContent) copyText(ep.textContent);
+});
+
 $('#copyShareBtn').addEventListener('click', () => {
   const token = $('#shareInfo')._token;
   if (!token) {
@@ -751,6 +758,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&previewOverlay.styl
 function downloadFile(filename) { const a=document.createElement('a');a.href=`${BASE}/api/download/${encodeURIComponent(filename)}`;a.click(); }
 async function deleteFile(filename) {
   showConfirm(`确定要删除「${filename}」吗？`,async()=>{try{await api('DELETE',`${BASE}/api/files/${encodeURIComponent(filename)}`);toast('已删除: '+filename);loadFiles();loadDiskInfo();}catch(e){toast('删除失败: '+e.message);}hideConfirm();});
+}
+function copyText(text) {
+  copyToClipboard(text).then(() => toast('✅ 已复制: ' + text), () => toast('复制失败'));
 }
 function copyToClipboard(text) {
   if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(text);

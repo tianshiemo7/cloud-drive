@@ -473,6 +473,8 @@ html, body {
 .info-card { display: flex; flex-direction: column; gap: 8px; }
 .info-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .info-label { color: var(--text-muted); font-weight: 500; }
+.copyable { cursor: pointer; color: var(--accent); user-select: all; }
+.copyable:hover { text-decoration: underline; opacity: 0.8; }
 .settings-input { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; width: 160px; background: var(--bg); color: var(--text); }
 
 .peer-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
@@ -504,10 +506,6 @@ html, body {
   width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px;
   font-size: 11px; font-family: monospace; background: var(--bg); color: var(--text);
   resize: vertical; box-sizing: border-box;
-}
-.topology-result {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  padding: 10px 14px; margin-top: 6px; font-size: 13px;
 }
 
 .settings-overlay {
