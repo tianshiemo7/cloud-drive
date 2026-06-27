@@ -191,10 +191,8 @@ function getFilteredFiles() {
     files = files.filter(f => f.folder === currentFolder);
   } else if (currentViewNodeId) {
     files = files.filter(f => (f.nodeId||'local') === currentViewNodeId && !f.folder);
-  } else {
-    // 根目录：只显示无文件夹的文件
-    files = files.filter(f => !f.folder);
   }
+  // else: 初始状态不设置过滤，显示所有文件（等 loadClusterInfo 后自动聚焦根文件夹）
   return files;
 }
 
@@ -738,7 +736,7 @@ newFolderBtn.addEventListener('click', createFolder);
 $('#settingsBtn').addEventListener('click', openSettings);
 
 /* ==================== PWA ==================== */
-if('serviceWorker' in navigator) { navigator.serviceWorker.register(`${BASE}/sw.js`).catch(()=>{}); }
+if('serviceWorker' in navigator) { navigator.serviceWorker.register(`${BASE}/sw.js?v=3`).catch(()=>{}); }
 
 /* ==================== 片段 URL ==================== */
 (async()=>{
