@@ -171,13 +171,3 @@ docker compose up -d
 首次启动时如未设置，会自动生成并写入 `.env` 文件。通过 PM2 部署时建议在 `ecosystem.config.js` 中配置。
 
 ---
-
-## 本地开发目录
-
-```
-C:\Users\刘朝阳\Desktop\Claude Code\cloud-drive\
-```
-
-服务器部署目录：`/www/wwwroot/cloud-drive/`
-
-详细部署记录见 `Keep-FIT-Generator-部署记录.md`。
