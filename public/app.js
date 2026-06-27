@@ -157,8 +157,7 @@ async function loadFiles() {
   try {
     const d = await api('GET', `${BASE}/api/files`);
     allFiles = d.files || [];
-    renderFileGrid();
-    fileCount.textContent = `(${allFiles.length})`;
+    renderFileGrid();  // updateFileCount 在 renderFileGrid 内已设置正确的过滤计数
     if (d.nodes) updateNodeStatus(d.nodes);
   } catch(e) { toast('加载文件列表失败: '+e.message); }
 }
