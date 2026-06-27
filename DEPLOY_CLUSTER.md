@@ -1,36 +1,33 @@
 # 分布式云盘部署指南 — 从零到集群互联
 
-> 适用版本：v2.1.0  
+> 适用版本：v2.3.0（一键连接口令）  
 > GitHub：https://github.com/tianshiemo7/cloud-drive  
-> 前置要求：一台带公网 IP 的 Linux 服务器（推荐阿里云 ECS）
+> 前置要求：一台带公网 IP 的 Linux 服务器
 
 ---
 
 ## 目录
 
 1. [准备工作](#1-准备工作)
-2. [单机部署（5 分钟）](#2-单机部署)
+2. [单机部署（3 分钟）](#2-单机部署)
 3. [测试单机功能](#3-测试单机功能)
-4. [配置集群互联](#4-配置集群互联)
-5. [测试集群功能](#5-测试集群功能)
-6. [连接到我已有的云盘](#6-连接到我已有的云盘)
-7. [常用运维](#7-常用运维)
-8. [回滚方案](#8-回滚方案)
+4. [集群互联 — 一键连接](#4-集群互联--一键连接)
+5. [连接到我已有的云盘](#5-连接到我已有的云盘)
+6. [常用运维](#6-常用运维)
+7. [附件](#7-附件)
 
 ---
 
 ## 1. 准备工作
 
-### 1.1 你需要的信息
-
 | 项目 | 说明 |
 |------|------|
-| 一台 Linux 服务器 | 推荐 2 vCPU / 2 GiB 以上，有公网 IP |
-| 你的服务器公网 IP | 如 `123.45.67.89` |
-| 域名（可选） | 后续可绑定 |
-| 现有节点信息 | 如果要连接到已有集群（见第 6 节） |
+| Linux 服务器 | 推荐 2 vCPU / 2 GiB，有公网 IP |
+| Node.js 18+ | 见下方安装命令 |
+| PM2 | 进程守护 |
+| Nginx（推荐） | 反向代理 |
 
-### 1.2 安装 Node.js 18+
+### 安装 Node.js 18+
 
 ```bash
 # Alibaba Cloud Linux / CentOS / RHEL
@@ -42,124 +39,47 @@ curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 apt-get install -y nodejs
 
 # 验证
-node -v   # 应输出 v18.x.x
-npm -v    # 应输出 9.x.x 或 10.x.x
+node -v   # v18.x.x
 ```
 
-### 1.3 安装 PM2（进程守护）
+### 安装 PM2
 
 ```bash
 npm install -g pm2
-pm2 startup   # 设置开机自启，按提示执行输出命令
-```
-
-### 1.4 安装 Nginx（可选，推荐）
-
-```bash
-yum install -y nginx    # CentOS/RHEL
-apt-get install -y nginx  # Ubuntu/Debian
+pm2 startup
 ```
 
 ---
 
 ## 2. 单机部署
 
-### 2.1 克隆代码
-
 ```bash
 git clone https://github.com/tianshiemo7/cloud-drive.git
 cd cloud-drive
-```
-
-### 2.2 安装依赖
-
-```bash
 npm install
-```
-
-### 2.3 创建配置文件
-
-```bash
-# 从模板创建 .env
 cp .env.example .env
-```
-
-编辑 `.env`：
-
-```bash
-nano .env
-```
-
-内容如下：
-
-```env
-# 设置你自己的管理员密钥（这很重要！）
-CLOUD_DRIVE_ADMIN_KEY=你的强密码_至少16位
-
-# 单机模式：不需要填以下内容
-# CLUSTER_NODE_ID=
-# CLUSTER_PEERS=
-```
-
-> ⚠️ `CLOUD_DRIVE_ADMIN_KEY` 是你登录管理后台的密码，必须设置一个强密码。  
-> 如果不设置，系统会自动生成一个 8 位随机密钥并打印在启动日志中。
-
-### 2.4 创建必要目录
-
-```bash
+nano .env          # 设置 CLOUD_DRIVE_ADMIN_KEY=你的强密码
 mkdir -p uploads snippets logs
-```
-
-### 2.5 启动服务
-
-**方式一：直接运行（测试用）**
-
-```bash
-node server.js
-```
-
-看到以下输出表示成功：
-
-```
-📁  文件中转站 v2.1.0 已启动
-   地址: http://127.0.0.1:3002
-   管理员密钥: 你的密码
-   存储目录: .../uploads
-   模式: 独立运行
-```
-
-按 `Ctrl+C` 停止。
-
-**方式二：PM2 守护运行（生产用）**
-
-```bash
 pm2 start ecosystem.config.js
 pm2 save
 ```
 
-### 2.6 配置 Nginx 反向代理（推荐）
-
-复制项目中的 `keep-fit.conf` 到 Nginx 配置目录，或创建新配置：
-
-```bash
-nano /etc/nginx/conf.d/cloud-drive.conf
-```
+### Nginx 反向代理（推荐）
 
 ```nginx
 server {
     listen 80;
-    server_name _;    # 有域名则改为你的域名
-
+    server_name _;
     client_max_body_size 500m;
 
-    # 安全头
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "DENY" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # Service Worker — 禁止缓存
+    location = /cloud/sw.js {
+        proxy_pass http://127.0.0.1:3002/sw.js;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
 
-    location / {
-        proxy_pass http://127.0.0.1:3002;
+    location /cloud/ {
+        proxy_pass http://127.0.0.1:3002/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -175,287 +95,148 @@ server {
 ```
 
 ```bash
-# 测试配置
-nginx -t
-
-# 重载
-nginx -s reload
+nginx -t && nginx -s reload
 ```
 
-### 2.7 开放防火墙端口
+### 防火墙
 
-**阿里云控制台** → 服务器实例 → 防火墙 → 添加规则：
+阿里云控制台 → 防火墙 → 添加规则：
 
 | 端口 | 来源 | 用途 |
 |------|------|------|
-| 80 | 0.0.0.0/0 | HTTP 访问 |
-| 3002 | 集群对等节点 IP | 节点间通信（集群模式才需要） |
+| 80 | 0.0.0.0/0 | HTTP |
+| 3002 | 对等节点 IP | 集群通信 |
 
 ---
 
 ## 3. 测试单机功能
 
-### 3.1 浏览器访问
-
-打开 `http://你的公网IP/`（或带子路径 `http://你的公网IP/cloud/`）
-
-### 3.2 登录
-
-输入你在 `.env` 中设置的 `CLOUD_DRIVE_ADMIN_KEY`。
-
-### 3.3 测试上传和下载
-
-- 拖拽/点击上传文件
-- 生成密钥分享链接
-- 下载/预览文件
-
-### 3.4 API 健康检查
-
 ```bash
-curl http://你的IP:3002/api/health
+# 健康检查
+curl http://你的IP/cloud/api/health
+# → {"status":"ok","files":0,"version":"2.2.0"}
+
+# 浏览器访问
+http://你的IP/cloud/
 ```
 
-预期返回：
-
-```json
-{"status":"ok","version":"2.1.0","files":0,...}
-```
+登录密钥即 `.env` 中设置的 `CLOUD_DRIVE_ADMIN_KEY`。
 
 ---
 
-## 4. 配置集群互联
+## 4. 集群互联 — 一键连接
 
-当你有多台服务器时，让它们组成对等网格。
+**v2.3.0 新增：无需编辑 .env，无需重启，复制粘贴即可。**
 
-### 4.1 生成共享密钥
+### 4.1 云盘 A：生成连接口令
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+1. 登录 A 的管理页面
+2. 点左上角 ⚙ → **节点信息**
+3. 点 **📋 复制连接口令**
 
-输出类似：`d7f3a1b8c2e4...64位hex...`
+> 首次点击会自动生成 64 位 `CLUSTER_SECRET` 并写入 `.env`。口令格式：`CDC02:eyJ...`
 
-**这个密钥在所有节点间必须完全一致。** 记下它，下面用 `<SHARED_SECRET>` 表示。
+### 4.2 云盘 B：粘贴连接
 
-### 4.2 配置每台服务器
+1. 登录 B 的管理页面
+2. 点 ⚙ → **集群设置**
+3. 在 **🔗 一键连接** 输入框中粘贴口令
+4. 点 **连接**
 
-以两台服务器为例：
+**即时生效，无需重启。** B 的文件列表将自动聚合 A 的文件（带 `🖥节点标签`）。
 
-**服务器 A（节点1）：**
+### 4.3 双向互联
 
-```bash
-nano .env
-```
-
-```env
-CLOUD_DRIVE_ADMIN_KEY=服务器A的管理员密码
-
-# 节点身份
-CLUSTER_NODE_ID=node-1
-CLUSTER_NODE_NAME=节点一
-
-# 共享密钥（所有节点必须一致）
-CLUSTER_SECRET=<SHARED_SECRET>
-
-# 对等节点列表（列出除自己之外的所有节点）
-# 格式: 节点ID::http://IP:3002::共享密钥
-CLUSTER_PEERS=node-2::http://<服务器B的IP>:3002::<SHARED_SECRET>
-```
-
-**服务器 B（节点2）：**
-
-```bash
-nano .env
-```
-
-```env
-CLOUD_DRIVE_ADMIN_KEY=服务器B的管理员密码
-
-CLUSTER_NODE_ID=node-2
-CLUSTER_NODE_NAME=节点二
-
-CLUSTER_SECRET=<SHARED_SECRET>
-
-CLUSTER_PEERS=node-1::http://<服务器A的IP>:3002::<SHARED_SECRET>
-```
-
-### 4.3 重启所有节点
-
-```bash
-# 每台服务器上都执行
-pm2 restart cloud-drive
-pm2 save
-```
-
-启动日志中应看到：
+A 也需要连回 B 才能双向互通。B 同样生成自己的口令 → A 粘贴连接。
 
 ```
-🌐 集群模式已启用 · 节点: node-1 · 对等节点: node-2
+┌──────────────┐     CDC02 口令      ┌──────────────┐
+│   云盘 A      │ ◄──────────────► │   云盘 B      │
+│  node-shanghai│   互相粘贴连接      │  node-beijing │
+│  uploads/    │                   │  uploads/    │
+└──────────────┘                   └──────────────┘
 ```
 
-### 4.4 防火墙配置（关键！）
+### 4.4 防火墙
 
-在每台服务器的防火墙/安全组中，**允许其他对等节点的 IP 访问端口 3002**。
-
-> ⚠️ 端口 3002 不应对外开放（0.0.0.0/0），只开放给对等节点的 IP。
+每台服务器的 **端口 3002** 需要对所有对等节点 IP 开放（不要开放给 0.0.0.0/0）。
 
 ---
 
-## 5. 测试集群功能
+## 5. 连接到我已有的云盘
 
-### 5.1 验证节点互通
+我的云盘：`http://106.15.92.8:3002`（节点 `node-shanghai` / 上海主节点）
 
-在服务器 A 上：
+### 你需要做的
 
-```bash
-# 检查服务器 B 的内部 API
-curl -H "X-Cluster-NodeId: node-1" \
-     -H "X-Cluster-Timestamp: $(date +%s)" \
-     -H "X-Cluster-Nonce: test123" \
-     -H "X-Cluster-Signature: test" \
-     http://<服务器B的IP>:3002/api/internal/ping
-```
+1. 部署你自己的云盘（按第 2 节）
+2. 我生成连接口令发给你 → 你在集群设置中粘贴 → 连接
+3. 我同样粘贴你的口令 → 双向互通
 
-### 5.2 跨节点文件访问
+### 我需要做的
 
-1. 在服务器 B 的管理页面上传一个文件
-2. 复制文件密钥
-3. 打开服务器 A 的管理页面
-4. 你应该能在文件列表中看到来自服务器 B 的文件（带有 `🖥 node-2` 标签）
-5. 在服务器 A 的页面上可以直接预览/下载服务器 B 的文件
-
-### 5.3 跨节点密钥登录
-
-1. 在服务器 B 上生成一个文件分享密钥
-2. 在服务器 A 的登录页输入该密钥
-3. 应能成功登录为 viewer 并访问远程文件
+- 在阿里云防火墙中将你的 IP 加入端口 3002 的入方向白名单
 
 ---
 
-## 6. 连接到我已有的云盘
-
-我的云盘运行在 `106.15.92.8:3002`，集群配置如下。
-
-### 6.1 需要我提供的信息
-
-我会通过安全渠道发给你：
-
-| 参数 | 用途 |
-|------|------|
-| 共享密钥 `CLUSTER_SECRET` | HMAC 签名用 |
-| 节点 ID | `node-shanghai` |
-| 节点名称 | `上海主节点` |
-| IP:端口 | `106.15.92.8:3002` |
-
-### 6.2 你的 .env 配置
-
-```env
-CLOUD_DRIVE_ADMIN_KEY=你自己设的管理员密码
-
-CLUSTER_NODE_ID=node-beijing    # 改成你自己的节点名
-CLUSTER_NODE_NAME=北京节点       # 自定义名称
-
-CLUSTER_SECRET=<我发给你的共享密钥>
-
-CLUSTER_PEERS=node-shanghai::http://106.15.92.8:3002::<共享密钥>
-CLUSTER_TIMEOUT=5000
-```
-
-### 6.3 你的防火墙配置
-
-在阿里云控制台添加出方向/入方向规则：
-
-| 方向 | 端口 | IP |
-|------|------|-----|
-| 入方向 | 3002 | 106.15.92.8 |
-| 出方向 | — | 106.15.92.8:3002 |
-
-### 6.4 我的防火墙配置
-
-我这边会添加你的服务器 IP 到端口 3002 的入方向规则。
-
-### 6.5 重启生效
+## 6. 常用运维
 
 ```bash
-pm2 restart cloud-drive
-```
-
-启动后，打开你的管理页面，应能在文件列表中看到来自 `🖥 node-shanghai` 的文件。
-
----
-
-## 7. 常用运维命令
-
-```bash
-# 查看服务状态
+# 查看服务
 pm2 status
 
-# 查看日志（实时）
-pm2 logs cloud-drive
-
-# 查看日志（最近 50 行）
-pm2 logs cloud-drive --lines 50 --nostream
+# 查看日志
+pm2 logs cloud-drive --lines 50
 
 # 重启
 pm2 restart cloud-drive
-
-# 停止
-pm2 stop cloud-drive
-
-# 保存进程列表
-pm2 save
-
-# 系统资源
-df -h       # 磁盘使用
-free -h     # 内存使用
 
 # 更新代码
 cd /www/wwwroot/cloud-drive
 git pull
 npm install --production
 pm2 restart cloud-drive
+
+# 健康检查
+curl http://127.0.0.1:3002/api/health
+
+# 磁盘/内存
+df -h && free -h
 ```
 
 ---
 
-## 8. 回滚方案
+## 7. 附件
 
-```bash
-cd /www/wwwroot/cloud-drive
+### 端口一览
 
-# 替换为旧版
-cp server.js.backup server.js
-rm -rf lib/
+| 端口 | 用途 | 对外 |
+|------|------|------|
+| 80 | Nginx → 3002 | ✅ 公网 |
+| 3002 | Node + 对等节点通信 | ❌ 仅对等节点 IP |
 
-# 重启
-pm2 restart cloud-drive
-```
-
----
-
-## 附录 A：端口一览
-
-| 端口 | 用途 | 对外？ |
-|------|------|--------|
-| 80 | Nginx → 反代到 3002 | ✅ 公网 |
-| 443 | HTTPS（如有证书） | ✅ 公网 |
-| 3002 | Node 直连 + 对等节点通信 | ❌ 仅对等节点 |
-| 22 | SSH | ✅ 公网 |
-
-## 附录 B：架构速览
+### 口令格式
 
 ```
-┌──────────────┐    HMAC 签名     ┌──────────────┐
-│  节点 A       │◄──────────────►│  节点 B       │
-│  (上海)       │   /api/internal/  │  (北京)       │
-│  uploads/    │                  │  uploads/    │
+CDC02:base64url({"n":"节点ID","m":"名称","a":"http://IP:端口","s":"共享密钥"})
+```
+
+- 兼容旧版多行分享文本和 JSON 格式
+- `CLUSTER_SECRET` 首次生成时自动创建并持久化
+
+### 架构
+
+```
+┌──────────────┐   HMAC-SHA256    ┌──────────────┐
+│   节点 A      │◄──────────────►│   节点 B      │
+│  uploads/    │  /api/internal/  │  uploads/    │
 └──────┬───────┘                  └──────┬───────┘
+       │ Nginx :80                       │ Nginx :80
        │                                 │
-       │  Nginx :80                      │  Nginx :80
-       │                                 │
-   用户浏览器 ←── 从A访问B的文件时A代理流 ──→
+   用户浏览器 ←── HTTP pipe 流代理 ──→
 ```
 
-- 文件始终存储在上传节点，不做复制
-- 下载/预览时通过 HTTP pipe 流式代理
-- 前端始终只和本节点通信，后端透明代理远程文件
+- 文件始终存储在上传节点，不复制
+- 跨节点下载/预览通过 HTTP pipe 流式代理
+- 前端只和本节点通信，后端透明代理远程文件
+- `verifySignature` 支持"共享密钥信任"模式，任何持有正确密钥的节点均可加入网格
