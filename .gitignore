@@ -7,3 +7,4 @@ logs/
 keys.json
 snippets.json
 server.js.backup
+.env-prod\ncluster-nodes.json\nfolders.json\npeer-cache.json
