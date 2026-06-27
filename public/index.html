@@ -13,19 +13,94 @@
 </head>
 <body>
 
+<!-- ==================== 设置面板（左侧滑出） ==================== -->
+<div id="settingsDrawer" class="settings-drawer">
+  <div class="settings-header">
+    <h2>⚙ 设置</h2>
+    <button id="settingsCloseBtn" class="btn-close">&times;</button>
+  </div>
+  <div class="settings-tabs">
+    <button class="settings-tab active" data-tab="info">📡 节点信息</button>
+    <button class="settings-tab" data-tab="cluster">🌐 集群设置</button>
+    <button class="settings-tab" data-tab="admin">🔑 管理员</button>
+  </div>
+
+  <!-- Tab 1: 节点信息 -->
+  <div id="tab-info" class="settings-tab-content active">
+    <div class="info-card">
+      <div class="info-row"><span class="info-label">节点 ID</span><span id="siNodeId">--</span></div>
+      <div class="info-row"><span class="info-label">节点名称</span><span id="siNodeName">--</span></div>
+      <div class="info-row"><span class="info-label">版本</span><span id="siVersion">--</span></div>
+      <div class="info-row"><span class="info-label">运行时间</span><span id="siUptime">--</span></div>
+      <div class="info-row"><span class="info-label">文件数量</span><span id="siFileCount">--</span></div>
+      <div class="info-row"><span class="info-label">磁盘使用</span><span id="siDisk">--</span></div>
+      <div class="info-row"><span class="info-label">集群模式</span><span id="siClusterMode">--</span></div>
+    </div>
+    <div class="share-section">
+      <h4>📋 分享连接信息</h4>
+      <p style="font-size:11px;color:var(--text-muted);">对方在「集群设置」「一键连接」中粘贴即可接入，无需重启</p>
+      <textarea id="shareInfo" class="share-textarea" readonly rows="5" onclick="this.select()"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button id="copyShareBtn" class="btn btn-primary btn-sm">📋 复制连接口令</button>
+        <button id="copyJsonBtn" class="btn btn-sm">{} JSON</button>
+        <button id="qrShareBtn" class="btn btn-sm">📱 二维码</button>
+      </div>
+      <img id="shareQrImg" style="display:none;margin:8px auto;max-width:160px;" src="" alt="QR">
+    </div>
+  </div>
+
+  <!-- Tab 2: 集群设置 -->
+  <div id="tab-cluster" class="settings-tab-content">
+    <!-- 一键连接 -->
+    <h3>🔗 一键连接</h3>
+    <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">粘贴对方的口令即可连接，无需重启</p>
+    <div style="display:flex;gap:6px;">
+      <input type="text" id="connectToken" class="settings-input" placeholder="粘贴连接口令..." style="flex:1;">
+      <button id="connectBtn" class="btn btn-primary">连接</button>
+    </div>
+    <div id="connectResult" style="margin-top:8px;display:none;"></div>
+    <hr style="margin:12px 0;border-color:var(--border);">
+    <h3>对等节点</h3>
+    <div id="peerList" class="peer-list"></div>
+    <div class="add-peer-form">
+      <h4 class="collapsible-header" onclick="this.parentElement.classList.toggle('collapsed')">➕ 手动添加（高级）</h4>
+      <div class="collapsible-body">
+        <input type="text" id="peerNodeId" placeholder="节点ID (如 node-beijing)">
+        <input type="text" id="peerName" placeholder="节点名称 (如 北京节点)">
+        <input type="text" id="peerEndpoint" placeholder="地址 (如 http://10.0.0.2:3002)">
+        <input type="text" id="peerSecret" placeholder="共享密钥">
+        <div style="display:flex;gap:6px;">
+          <button id="discoverBtn" class="btn btn-sm">🔍 预览拓扑</button>
+          <button id="pastePeerBtn" class="btn btn-sm">📋 粘贴分享信息</button>
+        </div>
+        <div id="topologyResult" class="topology-result" style="display:none"></div>
+        <button id="addPeerBtn" class="btn btn-primary">添加节点</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: 管理员设置 -->
+  <div id="tab-admin" class="settings-tab-content">
+    <div class="info-card">
+      <div class="info-row"><span class="info-label">修改节点名称</span><input type="text" id="setNodeName" class="settings-input"></div>
+      <button id="saveNodeNameBtn" class="btn btn-primary" style="margin-top:8px;">保存</button>
+    </div>
+  </div>
+
+  <div id="settingsOverlay" class="settings-overlay"></div>
+</div>
+
 <!-- ==================== 登录页 ==================== -->
 <div id="loginPage" class="page">
   <div class="login-card">
     <div class="login-icon">📁</div>
     <h1>文件中转站</h1>
     <p class="login-subtitle">手机 · 电脑 · 文件互传</p>
-
     <div class="input-group">
       <input type="password" id="keyInput" placeholder="输入访问密钥" autocomplete="off" autocorrect="off" autocapitalize="off">
       <button id="loginBtn" class="btn btn-primary">进 入</button>
     </div>
     <div id="loginError" class="error-msg"></div>
-
     <div class="login-hints">
       <div class="hint-row">🔑 <span>管理员密钥 → 管理所有文件</span></div>
       <div class="hint-row">📎 <span>文件密钥 → 下载指定文件</span></div>
@@ -37,6 +112,8 @@
 <div id="adminPage" class="page" style="display:none">
   <header class="topbar">
     <div class="topbar-left">
+      <button id="settingsBtn" class="btn-icon" title="设置">⚙</button>
+      <button id="treeToggleBtn" class="btn-icon" title="目录树">☰</button>
       <span class="logo">📁 文件中转站</span>
       <span class="badge badge-admin">管理员</span>
     </div>
@@ -49,61 +126,69 @@
     </div>
   </header>
 
-  <main class="main-content">
-    <!-- 上传区域 -->
-    <div class="upload-zone" id="uploadZone">
-      <div class="upload-zone-content">
-        <div class="upload-icon">📤</div>
-        <p class="upload-text">点击选择文件 或 拖拽到此处</p>
-        <p class="upload-hint">支持多文件 · 单文件最大 500MB</p>
+  <div class="main-layout">
+    <!-- 左侧目录树 -->
+    <aside id="treeSidebar" class="tree-sidebar">
+      <div class="tree-header">📁 目录</div>
+      <div id="treeView" class="tree-view"></div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 面包屑 -->
+      <div id="breadcrumb" class="breadcrumb"></div>
+
+      <!-- 上传区域 -->
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-zone-content">
+          <div class="upload-icon">📤</div>
+          <p class="upload-text">点击选择文件 或 拖拽到此处</p>
+          <p class="upload-hint">支持多文件 · 单文件最大 500MB</p>
+        </div>
+        <input type="file" id="fileInput" multiple style="display:none">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
       </div>
-      <input type="file" id="fileInput" multiple style="display:none">
-      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
-    </div>
 
-    <!-- 上传进度 -->
-    <div class="progress-container" id="progressContainer" style="display:none">
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-        <span class="progress-text" id="progressText">0%</span>
+      <!-- 上传进度 -->
+      <div class="progress-container" id="progressContainer" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText">0%</div>
+        <div class="progress-detail" id="progressDetail"></div>
       </div>
-      <div class="progress-detail" id="progressDetail"></div>
-    </div>
 
-    <!-- 文本片段快速创建 -->
-    <div class="snippet-bar" id="snippetBar">
-      <button class="btn btn-ghost-small" id="snippetToggle">📝 快速创建文本片段</button>
-      <button class="btn btn-ghost-small" id="cameraBtn">📷 拍照上传</button>
-      <span class="batch-actions" id="batchActions" style="display:none">
-        <button class="btn btn-danger btn-small" id="batchDeleteBtn">🗑 批量删除</button>
-        <button class="btn btn-ghost-small" id="batchCancelBtn">取消选择</button>
-      </span>
-    </div>
-
-    <!-- 文本片段编辑区 -->
-    <div class="snippet-editor" id="snippetEditor" style="display:none">
-      <textarea id="snippetText" placeholder="粘贴或输入文本内容..." rows="5"></textarea>
-      <div class="snippet-actions">
-        <button class="btn btn-primary btn-small" id="snippetSaveBtn">生成分享链接</button>
-        <button class="btn btn-ghost-small" id="snippetCancelBtn">取消</button>
-      </div>
-    </div>
-
-    <!-- 文件列表 -->
-    <div class="file-section">
-      <div class="file-section-header">
-        <h2>文件列表 <span id="fileCount" class="count">(0)</span></h2>
-        <div class="sort-btns">
-          <button class="btn btn-ghost-small sort-btn" data-sort="name">名称 ⇅</button>
-          <button class="btn btn-ghost-small sort-btn" data-sort="size">大小 ⇅</button>
-          <button class="btn btn-ghost-small sort-btn active" data-sort="modified">日期 ⇅</button>
+      <!-- 快捷操作栏 -->
+      <div class="action-bar">
+        <button id="newFolderBtn" class="btn btn-sm" title="新建文件夹">📁 新建文件夹</button>
+        <button id="cameraBtn" class="btn btn-sm">📷 拍照</button>
+        <button id="snippetToggle" class="btn btn-sm">📝 文本片段</button>
+        <div id="batchActions" class="batch-actions" style="display:none">
+          <button id="batchDeleteBtn" class="btn btn-danger btn-sm">🗑 批量删除</button>
+          <button id="batchCancelBtn" class="btn btn-sm">取消</button>
         </div>
       </div>
-      <div id="fileList" class="file-list">
-        <div class="empty-state">暂无文件，上传第一个吧 📤</div>
+
+      <!-- 排序按钮 -->
+      <div class="sort-bar">
+        <span class="sort-label">排序:</span>
+        <button class="sort-btn active" data-sort="modified">📅 日期</button>
+        <button class="sort-btn" data-sort="name">🔤 名称</button>
+        <button class="sort-btn" data-sort="size">📏 大小</button>
+        <span id="fileCount" class="file-count">(0)</span>
       </div>
-    </div>
-  </main>
+
+      <!-- 文本片段编辑器 -->
+      <div id="snippetEditor" class="snippet-editor" style="display:none">
+        <textarea id="snippetText" rows="4" placeholder="粘贴文本内容..."></textarea>
+        <div>
+          <button id="snippetSaveBtn" class="btn btn-primary btn-sm">生成链接</button>
+          <button id="snippetCancelBtn" class="btn btn-sm">取消</button>
+        </div>
+      </div>
+
+      <!-- 文件网格 -->
+      <div id="fileGrid" class="file-grid"></div>
+    </main>
+  </div>
 </div>
 
 <!-- ==================== 访问者面板 ==================== -->
@@ -117,99 +202,84 @@
       <button id="viewerLogoutBtn" class="btn btn-ghost">退出</button>
     </div>
   </header>
-  <main class="main-content viewer-main">
-    <div class="viewer-file-card" id="viewerFileCard"></div>
-    <p class="viewer-note">此密钥仅可访问该文件</p>
+  <main class="main-content">
+    <div id="viewerFileCard" class="viewer-file-card"></div>
   </main>
 </div>
 
-<!-- ==================== 预览弹窗 ==================== -->
+<!-- ==================== 弹窗 ==================== -->
+
+<!-- 预览 -->
 <div id="previewOverlay" class="preview-overlay" style="display:none">
   <div class="preview-header">
-    <span id="previewTitle">预览</span>
-    <button class="btn btn-ghost" id="previewClose">✕</button>
+    <span id="previewTitle"></span>
+    <button id="previewClose" class="btn-close">&times;</button>
   </div>
-  <div class="preview-body" id="previewBody"></div>
+  <div id="previewBody" class="preview-body"></div>
 </div>
 
-<!-- ==================== 二维码弹窗 ==================== -->
+<!-- 二维码 -->
 <div id="qrOverlay" class="confirm-overlay" style="display:none">
-  <div class="qr-dialog">
-    <h3>📱 扫码访问</h3>
-    <img id="qrImage" src="" alt="QR Code" class="qr-img">
-    <p class="qr-key" id="qrKey"></p>
-    <button class="btn btn-primary btn-small" id="qrClose">关闭</button>
+  <div class="confirm-dialog">
+    <h3>📱 扫码下载</h3>
+    <img id="qrImage" src="" alt="QR" style="display:block;margin:0 auto;">
+    <p id="qrKey" style="text-align:center;margin-top:12px;"></p>
+    <button id="qrClose" class="btn btn-primary" style="width:100%">关闭</button>
   </div>
 </div>
 
-<!-- ==================== 密钥设置弹窗 ==================== -->
+<!-- 密钥设置 -->
 <div id="keySettingsOverlay" class="confirm-overlay" style="display:none">
-  <div class="key-settings-dialog">
-    <h3>🔑 密钥设置</h3>
-    <p class="key-settings-filename" id="keySettingsFilename"></p>
-    <label class="setting-row">
-      <span>有效期</span>
-      <select id="keyTTL">
-        <option value="0">永久有效</option>
-        <option value="3600">1 小时</option>
-        <option value="86400">24 小时</option>
-        <option value="604800">7 天</option>
-        <option value="2592000">30 天</option>
-      </select>
-    </label>
-    <label class="setting-row">
-      <span>下载次数限制</span>
-      <select id="keyMaxDownloads">
-        <option value="0">不限制</option>
-        <option value="1">1 次</option>
-        <option value="5">5 次</option>
-        <option value="10">10 次</option>
-        <option value="100">100 次</option>
-      </select>
-    </label>
-    <label class="setting-row">
-      <input type="checkbox" id="keyOneTime">
-      <span>阅后即焚（下载 1 次后自动删除）</span>
-    </label>
-    <div class="confirm-actions">
-      <button class="btn btn-ghost" id="keySettingsCancel">取消</button>
-      <button class="btn btn-primary" id="keySettingsSave">生成新密钥</button>
+  <div class="confirm-dialog">
+    <h3>⚙ 密钥设置</h3>
+    <p id="keySettingsFilename" class="file-name"></p>
+    <div class="form-group">
+      <label>有效期</label>
+      <select id="keyTTL"><option value="0">永久</option><option value="3600">1 小时</option><option value="86400">24 小时</option><option value="604800">7 天</option><option value="2592000">30 天</option></select>
     </div>
-    <div id="keySettingsResult" class="key-settings-result" style="display:none">
-      <p>新密钥: <strong id="newKeyValue"></strong></p>
+    <div class="form-group">
+      <label>下载次数</label>
+      <select id="keyMaxDownloads"><option value="0">不限</option><option value="1">1 次</option><option value="5">5 次</option><option value="10">10 次</option><option value="100">100 次</option></select>
     </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="keyOneTime"> 阅后即焚</label>
+    </div>
+    <div id="keySettingsResult" style="display:none;margin:12px 0;padding:8px;background:var(--surface-hover);border-radius:8px;">
+      🔑 新密钥: <span id="newKeyValue"></span>
+    </div>
+    <button id="keySettingsSave" class="btn btn-primary" style="width:100%">更新</button>
+    <button id="keySettingsCancel" class="btn btn-sm" style="width:100%;margin-top:4px;">取消</button>
   </div>
 </div>
 
-<!-- ==================== Toast ==================== -->
-<div id="toast" class="toast"></div>
-
-<!-- ==================== 删除确认 ==================== -->
+<!-- 确认 -->
 <div id="confirmOverlay" class="confirm-overlay" style="display:none">
   <div class="confirm-dialog">
-    <p id="confirmMsg">确定要删除吗？</p>
+    <p id="confirmMsg"></p>
     <div class="confirm-actions">
+      <button id="confirmOk" class="btn btn-danger">确认</button>
       <button id="confirmCancel" class="btn btn-ghost">取消</button>
-      <button id="confirmOk" class="btn btn-danger">删除</button>
     </div>
   </div>
 </div>
 
-<!-- ==================== 右键菜单 ==================== -->
+<!-- 右键菜单 -->
 <div id="contextMenu" class="context-menu" style="display:none">
   <div class="context-item" data-action="download">⬇ 下载</div>
   <div class="context-item" data-action="copyKey">📋 复制密钥</div>
   <div class="context-item" data-action="copyLink">🔗 复制链接</div>
-  <div class="context-item" data-action="qrCode">📱 生成二维码</div>
+  <div class="context-item" data-action="qrCode">📱 二维码</div>
   <div class="context-item" data-action="keySettings">⚙ 密钥设置</div>
-  <div class="context-sep"></div>
-  <div class="context-item context-danger" data-action="delete">🗑 删除</div>
+  <div class="context-item" data-action="moveHere">📁 移入文件夹</div>
+  <div class="context-item" data-action="delete">🗑 删除</div>
 </div>
 
-<script src="app.js"></script>
-<!-- Cloudflare 兼容回退 -->
+<!-- Toast -->
+<div id="toast" class="toast"></div>
 
-<!-- 全局暗色模式切换（悬浮按钮，所有页面可见） -->
-<button id="globalThemeToggle" class="theme-float-btn" title="切换暗色模式">🌓</button>
+<!-- 暗色模式切换 -->
+<button id="globalThemeToggle" class="theme-toggle">🌓</button>
+
+<script src="app.js"></script>
 </body>
 </html>
