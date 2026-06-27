@@ -215,6 +215,12 @@ function renderFileCard(f) {
 
   const nodeTag = f.nodeId ? `<span class="node-tag" title="存储位置">🖥 ${escapeHtml(f.nodeId)}</span>` : '';
 
+  // 文件夹标签：非根目录时显示所属文件夹
+  const siNodeId = document.getElementById('siNodeId')?.textContent || '';
+  const folderTag = (f.folder && f.folder !== siNodeId)
+    ? `<span class="node-tag folder-tag" title="所属文件夹" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(f.nodeId||siNodeId)}','${escapeAttr(f.folder)}')">📁 ${escapeHtml((allFolders.find(x=>x.id===f.folder)||{}).name||f.folder)}</span>`
+    : '';
+
   return `
     <div class="file-card" data-filename="${escapeHtml(f.name)}" oncontextmenu="showContextMenu(event,'${escapeAttr(f.name)}')">
       <input type="checkbox" class="file-checkbox" onchange="toggleSelect('${escapeAttr(f.name)}',this.checked)" onclick="event.stopPropagation()" ${selectedFiles.has(f.name)?'checked':''}>
@@ -222,6 +228,7 @@ function renderFileCard(f) {
       <div class="file-card-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
       <div class="file-card-meta">
         <span>${formatSize(f.size)}</span>
+        ${folderTag}
         ${nodeTag}
       </div>
       <div class="file-card-date">${formatDate(f.modified)}</div>
@@ -301,7 +308,7 @@ function buildSubTree(allFolders, items, nodeId, depth) {
     const children = allFolders.filter(c => c.parent === f.id);
     html += `<div class="tree-item ${isActive?'active':''}" data-folder-id="${escapeHtml(f.id)}" data-node-id="${escapeHtml(nodeId)}" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(nodeId)}','${escapeAttr(f.id)}')" oncontextmenu="folderContextMenu(event,'${escapeAttr(f.id)}','${escapeAttr(nodeId)}')">
       <span class="tree-indent" style="width:${depth*16}px"></span>
-      ${children.length?`<span class="tree-arrow expanded" onclick="var p=this.parentElement.nextElementSibling;if(p)p.style.display=p.style.display==='none'?'block':'none';event.stopPropagation();">▼</span>`:`<span style="width:14px;display:inline-block"></span>`}
+      ${children.length?`<span class="tree-arrow expanded">▼</span>`:`<span style="width:14px;display:inline-block"></span>`}
       📁 ${escapeHtml(f.name)}
     </div>`;
     if (children.length) {
@@ -378,6 +385,7 @@ async function deleteFolder(folderId) {
 }
 function folderContextMenu(e, folderId, nodeId) {
   e.preventDefault();
+  contextFile = null;
   contextMenu.innerHTML = `
     <div class="context-item" data-action="newSubFolder">📁 新建子文件夹</div>
     <div class="context-item" data-action="renameFolder">✏ 重命名</div>
@@ -584,6 +592,7 @@ treeToggleBtn.addEventListener('click', () => {
 function showContextMenu(e, filename) {
   e.preventDefault();
   contextFile = filename;
+  contextMenu._folderId = null; contextMenu._nodeId = null;
   contextMenu.innerHTML = `
     <div class="context-item" data-action="download">⬇ 下载</div>
     <div class="context-item" data-action="copyKey">📋 复制密钥</div>
