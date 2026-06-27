@@ -294,9 +294,10 @@ function renderTree() {
   });
 }
 function buildSubTree(folders, nodeId, depth) {
-  const roots = folders.filter(f => !f.parent);
+  // 首次调用（depth==1）只取顶层；递归调用直接渲染所有项（它们都是子节点）
+  const items = depth === 1 ? folders.filter(f => !f.parent) : folders;
   let html = '';
-  roots.forEach(f => {
+  items.forEach(f => {
     const isActive = currentViewNodeId === nodeId && currentFolder === f.id;
     const children = folders.filter(c => c.parent === f.id);
     html += `<div class="tree-item ${isActive?'active':''}" data-folder-id="${escapeHtml(f.id)}" data-node-id="${escapeHtml(nodeId)}" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(nodeId)}','${escapeAttr(f.id)}')" oncontextmenu="folderContextMenu(event,'${escapeAttr(f.id)}','${escapeAttr(nodeId)}')">
