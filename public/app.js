@@ -277,7 +277,8 @@ function renderTree() {
       <span class="tree-arrow expanded">▼</span>📁 <strong>${escapeHtml(nid)}</strong>
     </div>`;
     html += `<div class="tree-children">`;
-    html += buildSubTree(folders, nid, 1);
+    const roots = folders.filter(f => !f.parent);
+    html += buildSubTree(folders, roots, nid, 1);
     html += `</div>`;
   }
 
@@ -293,13 +294,11 @@ function renderTree() {
     });
   });
 }
-function buildSubTree(folders, nodeId, depth) {
-  // 首次调用（depth==1）只取顶层；递归调用直接渲染所有项（它们都是子节点）
-  const items = depth === 1 ? folders.filter(f => !f.parent) : folders;
+function buildSubTree(allFolders, items, nodeId, depth) {
   let html = '';
   items.forEach(f => {
     const isActive = currentViewNodeId === nodeId && currentFolder === f.id;
-    const children = folders.filter(c => c.parent === f.id);
+    const children = allFolders.filter(c => c.parent === f.id);
     html += `<div class="tree-item ${isActive?'active':''}" data-folder-id="${escapeHtml(f.id)}" data-node-id="${escapeHtml(nodeId)}" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(nodeId)}','${escapeAttr(f.id)}')" oncontextmenu="folderContextMenu(event,'${escapeAttr(f.id)}','${escapeAttr(nodeId)}')">
       <span class="tree-indent" style="width:${depth*16}px"></span>
       ${children.length?`<span class="tree-arrow expanded" onclick="var p=this.parentElement.nextElementSibling;if(p)p.style.display=p.style.display==='none'?'block':'none';event.stopPropagation();">▼</span>`:`<span style="width:14px;display:inline-block"></span>`}
@@ -307,7 +306,7 @@ function buildSubTree(folders, nodeId, depth) {
     </div>`;
     if (children.length) {
       html += `<div class="tree-children" style="display:block">`;
-      html += buildSubTree(children, nodeId, depth + 1);
+      html += buildSubTree(allFolders, children, nodeId, depth + 1);
       html += `</div>`;
     }
   });
