@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4A6CF7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>文件中转站</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📁</text></svg>">
+</head>
+<body>
+
+<!-- ==================== 登录页 ==================== -->
+<div id="loginPage" class="page">
+  <div class="login-card">
+    <div class="login-icon">📁</div>
+    <h1>文件中转站</h1>
+    <p class="login-subtitle">手机 · 电脑 · 文件互传</p>
+
+    <div class="input-group">
+      <input type="password" id="keyInput" placeholder="输入访问密钥" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <button id="loginBtn" class="btn btn-primary">进 入</button>
+    </div>
+    <div id="loginError" class="error-msg"></div>
+
+    <div class="login-hints">
+      <div class="hint-row">🔑 <span>管理员密钥 → 管理所有文件</span></div>
+      <div class="hint-row">📎 <span>文件密钥 → 下载指定文件</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 管理员面板 ==================== -->
+<div id="adminPage" class="page" style="display:none">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo">📁 文件中转站</span>
+      <span class="badge badge-admin">管理员</span>
+    </div>
+    <div class="topbar-center">
+      <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索文件...">
+    </div>
+    <div class="topbar-right">
+      <span class="disk-info" id="diskInfo">--</span>
+      <button id="adminLogoutBtn" class="btn btn-ghost">退出</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- 上传区域 -->
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-zone-content">
+        <div class="upload-icon">📤</div>
+        <p class="upload-text">点击选择文件 或 拖拽到此处</p>
+        <p class="upload-hint">支持多文件 · 单文件最大 500MB</p>
+      </div>
+      <input type="file" id="fileInput" multiple style="display:none">
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+    </div>
+
+    <!-- 上传进度 -->
+    <div class="progress-container" id="progressContainer" style="display:none">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+        <span class="progress-text" id="progressText">0%</span>
+      </div>
+      <div class="progress-detail" id="progressDetail"></div>
+    </div>
+
+    <!-- 文本片段快速创建 -->
+    <div class="snippet-bar" id="snippetBar">
+      <button class="btn btn-ghost-small" id="snippetToggle">📝 快速创建文本片段</button>
+      <button class="btn btn-ghost-small" id="cameraBtn">📷 拍照上传</button>
+      <span class="batch-actions" id="batchActions" style="display:none">
+        <button class="btn btn-danger btn-small" id="batchDeleteBtn">🗑 批量删除</button>
+        <button class="btn btn-ghost-small" id="batchCancelBtn">取消选择</button>
+      </span>
+    </div>
+
+    <!-- 文本片段编辑区 -->
+    <div class="snippet-editor" id="snippetEditor" style="display:none">
+      <textarea id="snippetText" placeholder="粘贴或输入文本内容..." rows="5"></textarea>
+      <div class="snippet-actions">
+        <button class="btn btn-primary btn-small" id="snippetSaveBtn">生成分享链接</button>
+        <button class="btn btn-ghost-small" id="snippetCancelBtn">取消</button>
+      </div>
+    </div>
+
+    <!-- 文件列表 -->
+    <div class="file-section">
+      <div class="file-section-header">
+        <h2>文件列表 <span id="fileCount" class="count">(0)</span></h2>
+        <div class="sort-btns">
+          <button class="btn btn-ghost-small sort-btn" data-sort="name">名称 ⇅</button>
+          <button class="btn btn-ghost-small sort-btn" data-sort="size">大小 ⇅</button>
+          <button class="btn btn-ghost-small sort-btn active" data-sort="modified">日期 ⇅</button>
+        </div>
+      </div>
+      <div id="fileList" class="file-list">
+        <div class="empty-state">暂无文件，上传第一个吧 📤</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ==================== 访问者面板 ==================== -->
+<div id="viewerPage" class="page" style="display:none">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo">📁 文件中转站</span>
+      <span class="badge badge-viewer">文件访问</span>
+    </div>
+    <div class="topbar-right">
+      <button id="viewerLogoutBtn" class="btn btn-ghost">退出</button>
+    </div>
+  </header>
+  <main class="main-content viewer-main">
+    <div class="viewer-file-card" id="viewerFileCard"></div>
+    <p class="viewer-note">此密钥仅可访问该文件</p>
+  </main>
+</div>
+
+<!-- ==================== 预览弹窗 ==================== -->
+<div id="previewOverlay" class="preview-overlay" style="display:none">
+  <div class="preview-header">
+    <span id="previewTitle">预览</span>
+    <button class="btn btn-ghost" id="previewClose">✕</button>
+  </div>
+  <div class="preview-body" id="previewBody"></div>
+</div>
+
+<!-- ==================== 二维码弹窗 ==================== -->
+<div id="qrOverlay" class="confirm-overlay" style="display:none">
+  <div class="qr-dialog">
+    <h3>📱 扫码访问</h3>
+    <img id="qrImage" src="" alt="QR Code" class="qr-img">
+    <p class="qr-key" id="qrKey"></p>
+    <button class="btn btn-primary btn-small" id="qrClose">关闭</button>
+  </div>
+</div>
+
+<!-- ==================== 密钥设置弹窗 ==================== -->
+<div id="keySettingsOverlay" class="confirm-overlay" style="display:none">
+  <div class="key-settings-dialog">
+    <h3>🔑 密钥设置</h3>
+    <p class="key-settings-filename" id="keySettingsFilename"></p>
+    <label class="setting-row">
+      <span>有效期</span>
+      <select id="keyTTL">
+        <option value="0">永久有效</option>
+        <option value="3600">1 小时</option>
+        <option value="86400">24 小时</option>
+        <option value="604800">7 天</option>
+        <option value="2592000">30 天</option>
+      </select>
+    </label>
+    <label class="setting-row">
+      <span>下载次数限制</span>
+      <select id="keyMaxDownloads">
+        <option value="0">不限制</option>
+        <option value="1">1 次</option>
+        <option value="5">5 次</option>
+        <option value="10">10 次</option>
+        <option value="100">100 次</option>
+      </select>
+    </label>
+    <label class="setting-row">
+      <input type="checkbox" id="keyOneTime">
+      <span>阅后即焚（下载 1 次后自动删除）</span>
+    </label>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" id="keySettingsCancel">取消</button>
+      <button class="btn btn-primary" id="keySettingsSave">生成新密钥</button>
+    </div>
+    <div id="keySettingsResult" class="key-settings-result" style="display:none">
+      <p>新密钥: <strong id="newKeyValue"></strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Toast ==================== -->
+<div id="toast" class="toast"></div>
+
+<!-- ==================== 删除确认 ==================== -->
+<div id="confirmOverlay" class="confirm-overlay" style="display:none">
+  <div class="confirm-dialog">
+    <p id="confirmMsg">确定要删除吗？</p>
+    <div class="confirm-actions">
+      <button id="confirmCancel" class="btn btn-ghost">取消</button>
+      <button id="confirmOk" class="btn btn-danger">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 右键菜单 ==================== -->
+<div id="contextMenu" class="context-menu" style="display:none">
+  <div class="context-item" data-action="download">⬇ 下载</div>
+  <div class="context-item" data-action="copyKey">📋 复制密钥</div>
+  <div class="context-item" data-action="copyLink">🔗 复制链接</div>
+  <div class="context-item" data-action="qrCode">📱 生成二维码</div>
+  <div class="context-item" data-action="keySettings">⚙ 密钥设置</div>
+  <div class="context-sep"></div>
+  <div class="context-item context-danger" data-action="delete">🗑 删除</div>
+</div>
+
+<script src="app.js"></script>
+<!-- Cloudflare 兼容回退 -->
+
+<!-- 全局暗色模式切换（悬浮按钮，所有页面可见） -->
+<button id="globalThemeToggle" class="theme-float-btn" title="切换暗色模式">🌓</button>
+</body>
+</html>

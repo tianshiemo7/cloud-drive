@@ -1,0 +1,9 @@
+node_modules/
+uploads/
+snippets/
+logs/
+*.log
+.env
+keys.json
+snippets.json
+server.js.backup

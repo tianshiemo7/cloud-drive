@@ -1,0 +1,14 @@
+{
+  "name": "file-relay",
+  "version": "2.0.1",
+  "description": "文件中转站 - 手机电脑文件互传，密钥分享，阅后即焚",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-session": "^1.18.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
