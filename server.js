@@ -347,16 +347,24 @@ app.post('/api/cluster/discover', requireAdmin, csrfCheck, async (req, res) => {
 app.post('/api/snippets', requireAdmin, csrfCheck, createSnippetHandler);
 app.get('/api/snippets/:key', getSnippetHandler);
 
-// 静态文件
+// 静态文件 — 首次访问时通知浏览器清理旧 SW 缓存
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html') {
+    res.set('Clear-Site-Data', '"cache"');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Multer 错误处理
 app.use(handleMulterError);
 
-// SPA Fallback
+// SPA Fallback — 添加 Clear-Site-Data 清理旧 SW 缓存
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/'))
     return res.status(404).json({ error: 'API 不存在' });
+  // 首次加载时通知浏览器清理旧版 Service Worker 缓存
+  res.set('Clear-Site-Data', '"cache"');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
