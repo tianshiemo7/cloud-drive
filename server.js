@@ -88,7 +88,7 @@ clusterConfig.load();
 
 // ==================== 加载模块 ====================
 
-const { loginLimiter } = require('./lib/utils');
+const { loginLimiter, uploadLimiter } = require('./lib/utils');
 const {
   csrfCheck,
   requireAdmin,
@@ -140,9 +140,13 @@ app.post('/api/login', loginLimiter, (req, res) => {
   const trimmedKey = key.trim();
 
   if (trimmedKey === config.ADMIN_KEY) {
-    req.session.role = 'admin';
-    req.session.csrf = crypto.randomBytes(16).toString('hex');
-    return res.json({ success: true, role: 'admin', csrf: req.session.csrf });
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: '登录失败' });
+      req.session.role = 'admin';
+      req.session.csrf = crypto.randomBytes(16).toString('hex');
+      return res.json({ success: true, role: 'admin', csrf: req.session.csrf });
+    });
+    return;
   }
 
   const { loadKeys } = require('./lib/persistence');
@@ -255,7 +259,7 @@ app.use('/api/internal', cluster.createInternalRouter());
 // ==================== 通用路由 ====================
 
 app.post('/api/logout', logoutHandler);
-app.post('/api/upload', requireAdmin, csrfCheck, uploadHandler);
+app.post('/api/upload', requireAdmin, csrfCheck, uploadLimiter, uploadHandler);
 app.delete('/api/files/:filename', requireAdmin, csrfCheck, deleteHandler);
 app.post('/api/files/delete-batch', requireAdmin, csrfCheck, batchDeleteHandler);
 app.post('/api/files/:filename/rekey', requireAdmin, csrfCheck, rekeyHandler);

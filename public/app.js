@@ -47,7 +47,7 @@ function toast(msg) { toastEl.textContent=msg;toastEl.classList.add('show');clea
 function showConfirm(msg,cb) { confirmMsg.textContent=msg;confirmCallback=cb;confirmOverlay.style.display='flex'; }
 function hideConfirm() { confirmOverlay.style.display='none';confirmCallback=null; }
 function escapeHtml(str) { const d=document.createElement('div');d.textContent=str;return d.innerHTML; }
-function escapeAttr(str) { return str.replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function escapeAttr(str) { return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 
 /* ==================== API ==================== */
 async function api(method, url, body) {
@@ -662,6 +662,8 @@ async function doUploadMultiple(files) {
   progressContainer.style.display='block'; progressFill.style.width='0%'; progressText.textContent='准备上传...'; progressDetail.textContent=`${files.length} 个文件`;
   let totalSize=0; for(const f of files) totalSize+=f.size;
   const formData=new FormData(); for(const f of files) formData.append('files',f);
+  // 上传到当前浏览的文件夹
+  if (currentFolder) formData.append('folder', currentFolder);
   try {
     await apiUpload(`${BASE}/api/upload`, formData, (loaded,total)=>{const pct=Math.round((loaded/total)*100);progressFill.style.width=pct+'%';progressText.textContent=pct+'%  '+formatSize(loaded)+' / '+formatSize(total);progressDetail.textContent=`${files.length} 个文件 · 总大小 ${formatSize(totalSize)}`;});
     toast('✅ 上传成功');
