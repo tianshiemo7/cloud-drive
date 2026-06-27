@@ -1,5 +1,5 @@
-// ==================== 文件中转站 v3.0 — 集群底层重构 ====================
-// v3.0: 内容哈希密钥 + clone 索引同步 + 本地缓存聚合
+// ==================== 文件中转站 v3.1 — 集群底层重构 ====================
+// v3.1: 内容哈希密钥 + clone 索引同步 + 双向连接 + 单文件存储
 // 支持单机独立模式 + 多节点集群模式
 
 const express = require('express');
@@ -384,7 +384,7 @@ app.get('*', (req, res) => {
 
 app.listen(config.PORT, () => {
   console.log('');
-  console.log('📁  文件中转站 v3.0 已启动');
+  console.log('📁  文件中转站 v3.1 已启动');
   console.log(`   地址: http://127.0.0.1:${config.PORT}`);
   console.log(`   管理员密钥: ${config.ADMIN_KEY}`);
   console.log(`   存储目录: ${config.UPLOAD_DIR}`);

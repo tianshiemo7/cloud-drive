@@ -1,0 +1,30 @@
+{
+  "self": {
+    "nodeId": "26.144.186.166",
+    "nodeName": "26.144.186.166",
+    "endpoint": "http://26.144.186.166:4010"
+  },
+  "secret": "shared-secret-123",
+  "peers": {
+    "26.144.186.166": {
+      "nodeId": "26.144.186.166",
+      "nodeName": "26.144.186.166",
+      "endpoint": "http://26.144.186.166:3010",
+      "addedAt": "2026-06-27T14:03:30.411Z",
+      "lastSeen": "2026-06-27T13:51:22.778Z",
+      "online": false,
+      "fileCount": 0,
+      "error": "connect ECONNREFUSED 26.144.186.166:3010"
+    },
+    "peer-new": {
+      "nodeId": "peer-new",
+      "nodeName": "NewPeer",
+      "endpoint": "http://10.0.0.1:3002",
+      "addedAt": "2026-06-27T14:04:13.344Z",
+      "lastSeen": "2026-06-27T14:04:20.395Z",
+      "online": false,
+      "fileCount": 0,
+      "error": "请求超时"
+    }
+  }
+}
