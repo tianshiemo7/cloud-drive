@@ -222,7 +222,7 @@ function renderFileCard(f) {
     : '';
 
   return `
-    <div class="file-card" data-filename="${escapeHtml(f.name)}" oncontextmenu="showContextMenu(event,'${escapeAttr(f.name)}')">
+    <div class="file-card" draggable="true" data-filename="${escapeHtml(f.name)}" ondragstart="dragFileStart(event,'${escapeAttr(f.name)}')" ondragend="dragFileEnd(event)" oncontextmenu="showContextMenu(event,'${escapeAttr(f.name)}')">
       <input type="checkbox" class="file-checkbox" onchange="toggleSelect('${escapeAttr(f.name)}',this.checked)" onclick="event.stopPropagation()" ${selectedFiles.has(f.name)?'checked':''}>
       <div class="file-card-icon" ondblclick="downloadFile('${escapeAttr(f.name)}')" onclick="${f.preview?`previewFile('${escapeAttr(f.name)}','${f.preview}')`:''}">${fileIcon(f.name)}</div>
       <div class="file-card-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
@@ -280,7 +280,7 @@ function renderTree() {
   let html = '';
   for (const [nid, folders] of Object.entries(grouped)) {
     const isActive = currentViewNodeId === nid && currentFolder === null;
-    html += `<div class="tree-node-root ${isActive?'active':''}" data-node-id="${escapeHtml(nid)}" onclick="selectTreeNode('${escapeAttr(nid)}', '${escapeAttr(nid)}')">
+    html += `<div class="tree-node-root ${isActive?'active':''}" data-node-id="${escapeHtml(nid)}" onclick="selectTreeNode('${escapeAttr(nid)}', '${escapeAttr(nid)}')" ondragover="folderDragOver(event,'${escapeAttr(nid)}')" ondragleave="folderDragLeave(event)" ondrop="folderDrop(event,'${escapeAttr(nid)}')">
       <span class="tree-arrow expanded">▼</span>📁 <strong>${escapeHtml(nid)}</strong>
     </div>`;
     html += `<div class="tree-children">`;
@@ -306,7 +306,7 @@ function buildSubTree(allFolders, items, nodeId, depth) {
   items.forEach(f => {
     const isActive = currentViewNodeId === nodeId && currentFolder === f.id;
     const children = allFolders.filter(c => c.parent === f.id);
-    html += `<div class="tree-item ${isActive?'active':''}" data-folder-id="${escapeHtml(f.id)}" data-node-id="${escapeHtml(nodeId)}" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(nodeId)}','${escapeAttr(f.id)}')" oncontextmenu="folderContextMenu(event,'${escapeAttr(f.id)}','${escapeAttr(nodeId)}')">
+    html += `<div class="tree-item ${isActive?'active':''}" data-folder-id="${escapeHtml(f.id)}" data-node-id="${escapeHtml(nodeId)}" onclick="event.stopPropagation();selectTreeNode('${escapeAttr(nodeId)}','${escapeAttr(f.id)}')" oncontextmenu="folderContextMenu(event,'${escapeAttr(f.id)}','${escapeAttr(nodeId)}')" ondragover="folderDragOver(event,'${escapeAttr(f.id)}')" ondragleave="folderDragLeave(event)" ondrop="folderDrop(event,'${escapeAttr(f.id)}')">
       <span class="tree-indent" style="width:${depth*16}px"></span>
       ${children.length?`<span class="tree-arrow expanded">▼</span>`:`<span style="width:14px;display:inline-block"></span>`}
       📁 ${escapeHtml(f.name)}
@@ -319,6 +319,65 @@ function buildSubTree(allFolders, items, nodeId, depth) {
   });
   return html;
 }
+/* ==================== 拖拽移动文件 ==================== */
+let dragFileNames = [];
+
+function dragFileStart(e, filename) {
+  // 如果当前有已选中的文件且包含此文件，拖拽全部选中文件
+  if (selectedFiles.size > 0 && selectedFiles.has(filename)) {
+    dragFileNames = [...selectedFiles];
+  } else {
+    dragFileNames = [filename];
+  }
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragFileNames.join('\n'));
+  e.currentTarget.classList.add('dragging');
+}
+
+function dragFileEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+// 目录树项接受拖放
+function folderDragOver(e, folderId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+function folderDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+async function folderDrop(e, folderId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragFileNames.length) return;
+  toast(`📁 移动 ${dragFileNames.length} 个文件...`);
+  let ok = 0, err = 0;
+  for (const name of dragFileNames) {
+    try {
+      await api('PUT', `${BASE}/api/files/${encodeURIComponent(name)}/move`, { folder: folderId });
+      ok++;
+    } catch(e) { err++; }
+  }
+  toast(folderId ? `✅ 已移动 ${ok} 个文件` + (err ? `，${err} 个失败` : '') : `✅ 已移到根目录`);
+  await loadFiles(); renderFileGrid();
+  dragFileNames = [];
+  selectedFiles.clear(); updateBatchUI();
+}
+
+// 上传区域也接受文件拖放（用于上传，优先级低于树节点）
+uploadZone.addEventListener('dragover', e => {
+  if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); uploadZone.classList.add('drag-over'); }
+});
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length > 0) doUploadMultiple(e.dataTransfer.files);
+});
+
 async function selectTreeNode(nodeId, folderId) {
   currentViewNodeId = nodeId; currentFolder = folderId;
   updateBreadcrumb();
@@ -662,10 +721,6 @@ document.addEventListener('paste', (e) => {
   const imageFiles=[]; for(const item of items){if(item.type.startsWith('image/')){const f=item.getAsFile();if(f)imageFiles.push(f);}}
   if(imageFiles.length>0){e.preventDefault();doUploadMultiple(imageFiles);toast(`📋 已粘贴 ${imageFiles.length} 张图片`);}
 });
-uploadZone.addEventListener('dragover', e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
-uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
-uploadZone.addEventListener('drop', e=>{e.preventDefault();uploadZone.classList.remove('drag-over');if(e.dataTransfer.files.length>0)doUploadMultiple(e.dataTransfer.files);});
-
 async function doUploadMultiple(files) {
   progressContainer.style.display='block'; progressFill.style.width='0%'; progressText.textContent='准备上传...'; progressDetail.textContent=`${files.length} 个文件`;
   let totalSize=0; for(const f of files) totalSize+=f.size;

@@ -376,6 +376,11 @@ html, body {
 }
 .tree-item:hover { background: var(--surface-hover); }
 .tree-item.active { background: var(--primary-light, #dbeafe); color: var(--primary); }
+.tree-item.drag-over, .tree-node-root.drag-over { background: var(--primary); color: #fff; border-radius: 4px; }
+
+/* 文件卡片拖拽状态 */
+.file-card.dragging { opacity: 0.4; transform: scale(0.95); }
+.file-card { transition: opacity 0.15s, transform 0.15s; }
 
 .tree-arrow {
   display: inline-block; width: 14px; font-size: 10px; cursor: pointer;
